@@ -1,5 +1,4 @@
 import { ethers } from "hardhat";
-const helpers = require("@nomicfoundation/hardhat-toolbox/network-helpers");
 
 async function main() {
     console.log('-------------------------- Starting Deployment --------------------------');
@@ -22,15 +21,14 @@ async function main() {
     await auction.waitForDeployment();
     console.log('ReverseDutchAuction deployed to:', auction.target);
 
-    console.log('-------------------------- Initial Setup --------------------------');
-
-    // Transfer tokens to the auction contract
+    console.log('-------------------------- Seller Listing Tokens --------------------------');
+    // Seller listing tokens (already done by transferring tokens to the auction contract)
     const tokenAmount = ethers.parseEther("100");
     await token.connect(owner).transfer(auction.target, tokenAmount);
-    console.log(`Transferred ${ethers.formatEther(tokenAmount)} tokens to auction contract`);
+    console.log(`Seller listed ${ethers.formatEther(tokenAmount)} tokens for auction`);
 
     // Fund buyer with ETH
-    const buyerFunding = ethers.parseEther("100");
+    const buyerFunding = ethers.parseEther("1000");
     await owner.sendTransaction({
         to: await buyer.getAddress(),
         value: buyerFunding
@@ -43,50 +41,50 @@ async function main() {
     const startPrice = await auction.currentPrice();
     console.log(`Initial auction price is: ${ethers.formatEther(startPrice)}`);
 
-    // Simulate time passing
+    console.log('-------------------------- Execute Swap at Different Time Intervals --------------------------');
+
+    // Initial Buy Attempt - Right after deployment
+    let buyAmount = ethers.parseEther("1");
+    let currentPrice = await auction.currentPrice();
+    let cost = buyAmount * currentPrice / ethers.parseEther("1");
+    console.log(`Attempting to buy ${ethers.formatEther(buyAmount)} tokens at initial price of ${ethers.formatEther(currentPrice)}`);
+    await attemptBuy(auction, buyer, buyAmount, cost);
+
+    // Buy attempt after half duration
     console.log("Simulating half the auction duration passing...");
     await ethers.provider.send("evm_increaseTime", [auctionDuration / 2]);
     await ethers.provider.send("evm_mine");
+    currentPrice = await auction.currentPrice();
+    cost = buyAmount * currentPrice / ethers.parseEther("1");
+    console.log(`Attempting to buy ${ethers.formatEther(buyAmount)} tokens at half duration price of ${ethers.formatEther(currentPrice)}`);
+    await attemptBuy(auction, buyer, buyAmount, cost);
 
-    // Check price after half duration
-    const midPrice = await auction.currentPrice();
-    console.log(`Price after half duration: ${ethers.formatEther(midPrice)}`);
-
-    console.log('-------------------------- Buying Tokens --------------------------');
-
-    // Buyer attempts to buy tokens
-    const buyAmount = ethers.parseEther("1");
-    const currentPrice = await auction.currentPrice();
-    const cost = buyAmount * currentPrice / ethers.parseEther("1");
-    const buyerBalanceBefore = await token.balanceOf(await buyer.getAddress());
-    console.log(`Attempting to buy ${ethers.formatEther(buyAmount)} tokens for ${ethers.formatEther(cost)} ETH`);
-    await auction.connect(buyer).buy(buyAmount, { value: cost });
-
-    const buyerBalanceAfter = await token.balanceOf(await buyer.getAddress());
-    console.log(`Buyer's token balance increased from ${ethers.formatEther(buyerBalanceBefore)} to ${ethers.formatEther(buyerBalanceAfter)}`);
-
-    console.log('-------------------------- Auction Expiration --------------------------');
-
-    // Simulate time passing beyond auction duration
+    // Attempting after auction ends (this should fail)
     console.log("Simulating auction expiration...");
     await ethers.provider.send("evm_increaseTime", [auctionDuration / 2 + 1]);
     await ethers.provider.send("evm_mine");
-
-    // Check price after auction ends
-    const endPrice = await auction.currentPrice();
-    console.log(`Price after auction ends: ${ethers.formatEther(endPrice)}`);
-
-    console.log('-------------------------- Token Withdrawal --------------------------');
-
-    // Seller attempts to withdraw remaining tokens
-    const contractBalanceBefore = await token.balanceOf(auction.target);
-    console.log(`Contract balance before withdrawal: ${ethers.formatEther(contractBalanceBefore)}`);
-    const sellerBalanceBefore = await token.balanceOf(await seller.getAddress());
-    await auction.connect(seller).withdraw();
-    const sellerBalanceAfter = await token.balanceOf(await seller.getAddress());
-    console.log(`Seller's token balance increased from ${ethers.formatEther(sellerBalanceBefore)} to ${ethers.formatEther(sellerBalanceAfter)}`);
+    currentPrice = await auction.currentPrice();
+    cost = buyAmount * currentPrice / ethers.parseEther("1");
+    console.log(`Attempting to buy ${ethers.formatEther(buyAmount)} tokens after auction ends (should fail)`);
+    try {
+        await attemptBuy(auction, buyer, buyAmount, cost);
+    } catch (error) {
+        console.log("Purchase failed as expected:", error.reason);
+    }
 
     console.log('-------------------------- Script Completed --------------------------');
+}
+
+async function attemptBuy(auction, buyer, buyAmount, cost) {
+    const buyerBalanceBefore = await auction.tokenToSell().balanceOf(await buyer.getAddress());
+    console.log(`Sending payment of ${ethers.formatEther(cost)} ETH`);
+    try {
+        await auction.connect(buyer).buy(buyAmount, { value: cost });
+        const buyerBalanceAfter = await auction.tokenToSell().balanceOf(await buyer.getAddress());
+        console.log(`Buy successful! Buyer's token balance increased from ${ethers.formatEther(buyerBalanceBefore)} to ${ethers.formatEther(buyerBalanceAfter)}`);
+    } catch (error) {
+        console.error("Buy failed:", error.reason);
+    }
 }
 
 main().catch((error) => {

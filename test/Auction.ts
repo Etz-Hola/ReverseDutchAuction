@@ -14,20 +14,16 @@ describe("ReverseDutchAuction", function () {
     let priceDecreasePerSecond: bigint;
 
     beforeEach(async function () {
-        // Get signers
         [owner, seller, buyer] = await ethers.getSigners();
 
-        // Set auction parameters
         initialPrice = ethers.parseEther("100");
-        auctionDuration = 60; // 1 minute for testing
+        auctionDuration = 60; 
         priceDecreasePerSecond = ethers.parseEther("0.01");
 
-        // Deploy the MockERC20 token
         const MockToken = await ethers.getContractFactory("MockERC20");
         token = await MockToken.deploy("MockToken", "MTK", ethers.parseEther("1000000"));
         await token.waitForDeployment();
 
-        // Deploy the ReverseDutchAuction contract
         const Auction = await ethers.getContractFactory("ReverseDutchAuction");
         auction = await Auction.connect(seller).deploy(
             await token.getAddress(),
@@ -37,10 +33,8 @@ describe("ReverseDutchAuction", function () {
         );
         await auction.waitForDeployment();
 
-        // Transfer tokens to the auction contract
         await token.transfer(await auction.getAddress(), ethers.parseEther("100"));
 
-        // Fund buyer with ETH
         await owner.sendTransaction({
             to: await buyer.getAddress(),
             value: ethers.parseEther("1000")

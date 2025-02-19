@@ -3,31 +3,26 @@ import { ethers } from "hardhat";
 async function main() {
     console.log('-------------------------- Starting Deployment --------------------------');
 
-    // Get signers
     const [owner, seller, buyer] = await ethers.getSigners();
 
-    // Deploy MockERC20 Token
     const MockToken = await ethers.getContractFactory("MockERC20");
     const token = await MockToken.connect(owner).deploy("MockToken", "MTK", ethers.parseEther("1000000"));
     await token.waitForDeployment();
     console.log('MockERC20 deployed to:', token.target);
 
-    // Deploy ReverseDutchAuction
     const Auction = await ethers.getContractFactory("ReverseDutchAuction");
     const initialPrice = ethers.parseEther("100");
-    const auctionDuration = 60; // 1 minute
+    const auctionDuration = 60; 
     const priceDecreasePerSecond = ethers.parseEther("0.01");
     const auction = await Auction.connect(seller).deploy(token.target, initialPrice, auctionDuration, priceDecreasePerSecond);
     await auction.waitForDeployment();
     console.log('ReverseDutchAuction deployed to:', auction.target);
 
     console.log('-------------------------- Seller Listing Tokens --------------------------');
-    // Seller listing tokens (already done by transferring tokens to the auction contract)
     const tokenAmount = ethers.parseEther("100");
     await token.connect(owner).transfer(auction.target, tokenAmount);
     console.log(`Seller listed ${ethers.formatEther(tokenAmount)} tokens for auction`);
 
-    // Fund buyer with ETH
     const buyerFunding = ethers.parseEther("1000");
     await owner.sendTransaction({
         to: await buyer.getAddress(),

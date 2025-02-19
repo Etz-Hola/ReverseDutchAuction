@@ -65,10 +65,8 @@ contract ReverseDutchAuction {
         buyer = msg.sender;
         auctionEnded = true;
         
-        // Transfer tokens to buyer
         require(tokenToSell.transfer(buyer, amount), "Token transfer failed");
         
-        // Transfer ETH to seller
         (bool sent, ) = seller.call{value: msg.value}("");
         require(sent, "Failed to send ETH to seller");
         

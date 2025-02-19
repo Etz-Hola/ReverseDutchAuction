@@ -32,20 +32,17 @@ async function main() {
 
     console.log('-------------------------- Auction Price Check --------------------------');
 
-    // Check initial price
     const startPrice = await auction.currentPrice();
     console.log(`Initial auction price is: ${ethers.formatEther(startPrice)}`);
 
     console.log('-------------------------- Execute Swap at Different Time Intervals --------------------------');
 
-    // Initial Buy Attempt - Right after deployment
     let buyAmount = ethers.parseEther("1");
     let currentPrice = await auction.currentPrice();
     let cost = buyAmount * currentPrice / ethers.parseEther("1");
     console.log(`Attempting to buy ${ethers.formatEther(buyAmount)} tokens at initial price of ${ethers.formatEther(currentPrice)}`);
     await attemptBuy(auction, buyer, buyAmount, cost);
 
-    // Buy attempt after half duration
     console.log("Simulating half the auction duration passing...");
     await ethers.provider.send("evm_increaseTime", [auctionDuration / 2]);
     await ethers.provider.send("evm_mine");
@@ -54,7 +51,6 @@ async function main() {
     console.log(`Attempting to buy ${ethers.formatEther(buyAmount)} tokens at half duration price of ${ethers.formatEther(currentPrice)}`);
     await attemptBuy(auction, buyer, buyAmount, cost);
 
-    // Attempting after auction ends (this should fail)
     console.log("Simulating auction expiration...");
     await ethers.provider.send("evm_increaseTime", [auctionDuration / 2 + 1]);
     await ethers.provider.send("evm_mine");
